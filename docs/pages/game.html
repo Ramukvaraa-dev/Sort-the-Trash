@@ -23,18 +23,27 @@
   <div id="root">
     <div class="game-root">
       <div class="game-container">
-        <!-- Score bar -->
-        <div class="topbar">
-          <div>🏆 Score: <span id="score">0</span></div>
-          <div>🔥 Combo: <span id="combo">0</span></div>
+        <div class="hud">
+          <div class="hud-item">
+            <span class="hud-label">SCORE</span>
+            <span class="hud-value" id="score">0</span>
+          </div>
+          <div class="hud-title">♻️ TRASH SORT</div>
+          <div class="hud-item">
+            <span class="hud-label">LEVEL</span>
+            <span class="hud-value" id="level">1</span>
+          </div>
         </div>
 
-        <!-- Trash type selector -->
-        <div class="panel">
-          <label class="panel-label">Select Type</label>
-          <button class="type-btn active" id="btn-plastic" onclick="setType('plastic', this)">🧴 Plastic</button>
-          <button class="type-btn"        id="btn-paper"   onclick="setType('paper',   this)">📄 Paper</button>
-          <button class="type-btn"        id="btn-organic" onclick="setType('organic', this)">🍌 Organic</button>
+        <div class="sub-hud">
+          <div class="lives-row" aria-label="Lives">
+            <span class="life-heart life-active" id="life-1">♥</span>
+            <span class="life-heart life-active" id="life-2">♥</span>
+            <span class="life-heart life-active" id="life-3">♥</span>
+          </div>
+          <div class="sub-right">
+            <span class="aim-row">CLICK to pick up · DROP in correct bin</span>
+          </div>
         </div>
 
         <!-- Home button -->
@@ -44,14 +53,21 @@
         <div id="feedback"></div>
 
         <!-- Canvas -->
-        <canvas id="game" class="game-canvas"></canvas>
+        <canvas id="game" width="900" height="530" class="game-canvas"></canvas>
 
-        <!-- Leaderboard -->
-        <div class="leaderboard">
-          <h2>🏆 Leaderboard</h2>
-          <input id="username" maxlength="12" placeholder="Enter username" />
-          <button class="save-btn" onclick="saveScore()">💾 Save Score</button>
-          <div id="scores"></div>
+        <div class="bins">
+          <div class="bin bin-plastic" data-bin="plastic">
+            <div class="bin-emoji">🧴</div>
+            <div class="bin-label">PLASTIC</div>
+          </div>
+          <div class="bin bin-paper" data-bin="paper">
+            <div class="bin-emoji">📄</div>
+            <div class="bin-label">PAPER</div>
+          </div>
+          <div class="bin bin-organic" data-bin="organic">
+            <div class="bin-emoji">🍌</div>
+            <div class="bin-label">ORGANIC</div>
+          </div>
         </div>
       </div>
     </div>
