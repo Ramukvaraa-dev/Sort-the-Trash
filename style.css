@@ -1,0 +1,4 @@
+/* Compatibility shim for older links.
+   The real stylesheet lives at css/style.css. */
+@import url("./css/style.css");
+
