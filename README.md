@@ -1,4 +1,4 @@
-# Eco Shooter Advanced 🔥
+# Sort the Trash 🔥
 
 A polished arcade shooter with smooth UI, harder gameplay, combos, and GitHub Pages support.
 
