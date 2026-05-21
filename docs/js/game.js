@@ -1,220 +1,315 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ECO GARBAGE SHOOTER — game.js
-   Handles: canvas setup, game loop, shooting, trash, leaderboard
+   TRASH SORT — game.js
+   Interaction: CLICK to pick up · DROP in correct bin
+   UI: SCORE, LEVEL, ♥♥♥ lives
 ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Canvas ───────────────────────────────────────────────────────── */
-const canvas = document.getElementById('game');
-const ctx    = canvas.getContext('2d');
+(() => {
+  const canvas = document.getElementById('game');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
 
-function resizeCanvas() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const feedbackEl = document.getElementById('feedback');
+  const lifeEls = [1, 2, 3].map((n) => document.getElementById(`life-${n}`)).filter(Boolean);
 
-/* ── Game state ───────────────────────────────────────────────────── */
-let score    = 0;
-let combo    = 0;
-let selected = 'plastic';
-let bullets  = [];
-let trash    = [];
-let rafId    = null;
+  const bins = Array.from(document.querySelectorAll('.bin'));
+  const binByPoint = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return null;
+    const bin = el.closest?.('.bin');
+    return bin || null;
+  };
 
-const allowed = /^[a-zA-Z0-9_]+$/;
+  const TRASH = [
+    { type: 'plastic', emoji: '🧴', color: '#60a5fa' },
+    { type: 'paper', emoji: '📄', color: '#fbbf24' },
+    { type: 'organic', emoji: '🍌', color: '#4ade80' },
+  ];
 
-const trashTypes = [
-  { type: 'plastic', emoji: '🧴' },
-  { type: 'paper',   emoji: '📄' },
-  { type: 'organic', emoji: '🍌' },
-];
+  const state = {
+    running: true,
+    score: 0,
+    level: 1,
+    lives: 3,
+    time: 0,
+    spawnTimer: 0,
+    items: [],
+    heldId: null,
+    pointer: { x: 0, y: 0, active: false },
+    feedbackTimer: null,
+  };
 
-/* ── Type selector ────────────────────────────────────────────────── */
-function setType(t, btn) {
-  selected = t;
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-}
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-/* ── HUD update ───────────────────────────────────────────────────── */
-function updateUI() {
-  document.getElementById('score').textContent = score;
-  document.getElementById('combo').textContent = combo;
-}
+  function setFeedback(text, color) {
+    if (!feedbackEl) return;
+    feedbackEl.textContent = text;
+    feedbackEl.style.color = color || '#fff';
+    feedbackEl.style.opacity = '1';
+    clearTimeout(state.feedbackTimer);
+    state.feedbackTimer = setTimeout(() => {
+      feedbackEl.style.opacity = '0';
+    }, 650);
+  }
 
-/* ── Feedback flash ───────────────────────────────────────────────── */
-let feedbackTimer = null;
+  function updateUI() {
+    if (scoreEl) scoreEl.textContent = String(state.score);
+    if (levelEl) levelEl.textContent = String(state.level);
+    for (let i = 0; i < lifeEls.length; i++) {
+      const el = lifeEls[i];
+      if (!el) continue;
+      const active = i < state.lives;
+      el.classList.toggle('life-active', active);
+      el.classList.toggle('life-lost', !active);
+    }
+  }
 
-function flashFeedback(txt, color) {
-  const el = document.getElementById('feedback');
-  el.textContent   = txt;
-  el.style.color   = color;
-  el.style.opacity = '1';
-  clearTimeout(feedbackTimer);
-  feedbackTimer = setTimeout(() => { el.style.opacity = '0'; }, 650);
-}
+  function setCanvasSize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
 
-/* ── Spawn trash ──────────────────────────────────────────────────── */
-function spawnTrash() {
-  const t = trashTypes[Math.floor(Math.random() * trashTypes.length)];
-  trash.push({
-    x:     Math.random() * (canvas.width - 60) + 10,
-    y:     -50,
-    emoji: t.emoji,
-    type:  t.type,
-    speed: 1 + Math.random() * 1.5,
-  });
-}
+  function getPointerInCanvas(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+    return { x, y };
+  }
 
-setInterval(spawnTrash, 900);
+  function levelForScore(score) {
+    if (score >= 60) return 6;
+    if (score >= 45) return 5;
+    if (score >= 30) return 4;
+    if (score >= 18) return 3;
+    if (score >= 8) return 2;
+    return 1;
+  }
 
-/* ── Shoot on click ───────────────────────────────────────────────── */
-canvas.addEventListener('click', e => {
-  const cx = canvas.width  / 2;
-  const cy = canvas.height - 100;
+  function spawnIntervalForLevel(level) {
+    return clamp(1.05 - level * 0.12, 0.35, 1.05);
+  }
 
-  bullets.push({
-    x:    cx,
-    y:    cy,
-    dx:   (e.clientX - cx) / 22,
-    dy:   (e.clientY - cy) / 22,
-    type: selected,
-  });
-});
+  function speedForLevel(level) {
+    return 55 + level * 22;
+  }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN DRAW LOOP
-═══════════════════════════════════════════════════════════════════ */
-function draw() {
-  rafId = requestAnimationFrame(draw);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  function loseLife(reason) {
+    state.lives = Math.max(0, state.lives - 1);
+    updateUI();
+    if (reason === 'wrong') setFeedback('❌ Wrong bin!', '#f87171');
+    else if (reason === 'miss') setFeedback('💨 Missed!', '#fbbf24');
+    else setFeedback('⚠️ Oops!', '#fbbf24');
 
-  const shooterX = canvas.width  / 2;
-  const shooterY = canvas.height - 100;
+    if (state.lives <= 0) {
+      state.running = false;
+      canvas.style.cursor = 'default';
+      setFeedback('Game over — refresh to try again', '#f87171');
+    }
+  }
 
-  /* ── Truck ──────────────────────────────────────────────────── */
-  ctx.font = '54px Arial';
-  ctx.fillText('🚛', shooterX - 27, shooterY + 10);
+  function addTrash() {
+    const t = TRASH[(Math.random() * TRASH.length) | 0];
+    const margin = 44;
+    const radius = 22;
+    state.items.push({
+      id: crypto?.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
+      type: t.type,
+      emoji: t.emoji,
+      x: margin + Math.random() * (canvas.width - margin * 2),
+      y: -40,
+      vy: speedForLevel(state.level) * (0.75 + Math.random() * 0.55),
+      radius,
+      held: false,
+    });
+  }
 
-  /* Selected type indicator above truck */
-  const typeEmoji = trashTypes.find(t => t.type === selected)?.emoji || '🧴';
-  ctx.font = '22px Arial';
-  ctx.fillText(typeEmoji, shooterX - 10, shooterY - 14);
+  function findItemAt(x, y) {
+    for (let i = state.items.length - 1; i >= 0; i--) {
+      const it = state.items[i];
+      const d = Math.hypot(it.x - x, it.y - y);
+      if (d <= it.radius + 10) return it;
+    }
+    return null;
+  }
 
-  /* ── Bullets ────────────────────────────────────────────────── */
-  for (let bi = bullets.length - 1; bi >= 0; bi--) {
-    const b = bullets[bi];
-    b.x += b.dx;
-    b.y += b.dy;
+  function removeItem(id) {
+    const idx = state.items.findIndex((it) => it.id === id);
+    if (idx >= 0) state.items.splice(idx, 1);
+  }
 
-    // Remove bullets that fly off-screen
-    if (b.x < -20 || b.x > canvas.width + 20 ||
-        b.y < -20 || b.y > canvas.height + 20) {
-      bullets.splice(bi, 1);
-      continue;
+  function dropHeld(clientX, clientY) {
+    if (!state.heldId) return;
+    const held = state.items.find((it) => it.id === state.heldId);
+    if (!held) {
+      state.heldId = null;
+      canvas.style.cursor = 'default';
+      return;
     }
 
-    // Draw bullet
-    ctx.fillStyle   = '#facc15';
-    ctx.shadowBlur  = 10;
-    ctx.shadowColor = '#facc15';
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    held.held = false;
+    canvas.style.cursor = 'default';
 
-    // Collision check with each trash item
-    for (let ti = trash.length - 1; ti >= 0; ti--) {
-      const t    = trash[ti];
-      const dist = Math.hypot(b.x - t.x, b.y - t.y);
+    const bin = binByPoint(clientX, clientY);
+    const binType = bin?.getAttribute('data-bin') || null;
 
-      if (dist < 38) {
-        if (b.type === t.type) {
-          score += 10 + combo;   // combo bonus stacks
-          combo++;
-          flashFeedback('✅ +' + (10 + combo - 1), '#4ade80');
-        } else {
-          score = Math.max(0, score - 5);
-          combo = 0;
-          flashFeedback('❌ Wrong type!', '#f87171');
-        }
+    if (binType && binType === held.type) {
+      state.score += 1;
+      state.level = levelForScore(state.score);
+      updateUI();
+      setFeedback('✅ Nice!', '#4ade80');
+      removeItem(held.id);
+    } else if (binType) {
+      removeItem(held.id);
+      loseLife('wrong');
+    } else {
+      // Dropped nowhere: just continue falling
+    }
 
-        updateUI();
-        trash.splice(ti, 1);
-        bullets.splice(bi, 1);
-        break;
+    state.heldId = null;
+  }
+
+  function onPointerMove(e) {
+    state.pointer.active = true;
+    const p = getPointerInCanvas(e.clientX, e.clientY);
+    state.pointer.x = p.x;
+    state.pointer.y = p.y;
+
+    if (state.heldId) {
+      const held = state.items.find((it) => it.id === state.heldId);
+      if (held) {
+        held.x = clamp(p.x, held.radius, canvas.width - held.radius);
+        held.y = clamp(p.y, held.radius, canvas.height - held.radius);
       }
     }
   }
 
-  /* ── Trash ──────────────────────────────────────────────────── */
-  for (let i = trash.length - 1; i >= 0; i--) {
-    const t = trash[i];
-    t.y += t.speed;
+  function onPointerDown(e) {
+    if (!state.running) return;
+    const p = getPointerInCanvas(e.clientX, e.clientY);
+    const target = findItemAt(p.x, p.y);
+    if (!target) return;
+    state.heldId = target.id;
+    target.held = true;
+    target.x = p.x;
+    target.y = p.y;
+    canvas.style.cursor = 'grabbing';
+    setFeedback('Picked up!', '#a7f3d0');
+  }
 
-    ctx.font = '42px Arial';
-    ctx.fillText(t.emoji, t.x, t.y);
+  function onPointerUp(e) {
+    if (!state.running) return;
+    dropHeld(e.clientX, e.clientY);
+  }
 
-    // Missed — fell past the bottom
-    if (t.y > canvas.height + 10) {
-      trash.splice(i, 1);
-      score = Math.max(0, score - 2);
-      combo = 0;
-      flashFeedback('💨 Missed!', '#fbbf24');
-      updateUI();
+  function drawRoundedRect(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function renderBackground() {
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#020617');
+    grad.addColorStop(1, '#0b1220');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Subtle grid
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = '#94a3b8';
+    const step = 48;
+    for (let x = 0; x <= canvas.width; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
     }
-  }
-}
-
-/* ── Start loop ───────────────────────────────────────────────────── */
-draw();
-
-/* ═══════════════════════════════════════════════════════════════════
-   LEADERBOARD
-═══════════════════════════════════════════════════════════════════ */
-
-function saveScore() {
-  const username = document.getElementById('username').value.trim();
-
-  if (!allowed.test(username)) {
-    alert('Only letters, numbers, and underscores allowed.');
-    return;
-  }
-  if (username.length < 3) {
-    alert('Username must be at least 3 characters.');
-    return;
+    for (let y = 0; y <= canvas.height; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
-  let scores = JSON.parse(localStorage.getItem('ecoScores') || '[]');
-  scores.push({ name: username, score: score });
-  scores.sort((a, b) => b.score - a.score);
-  scores = scores.slice(0, 10);
-  localStorage.setItem('ecoScores', JSON.stringify(scores));
-  renderScores();
-}
+  function renderItem(it) {
+    // Shadow / chip
+    ctx.save();
+    ctx.shadowBlur = it.held ? 28 : 18;
+    ctx.shadowColor = 'rgba(34,197,94,0.25)';
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    drawRoundedRect(it.x - 28, it.y - 28, 56, 56, 16);
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
-function renderScores() {
-  const scores = JSON.parse(localStorage.getItem('ecoScores') || '[]');
-  const div    = document.getElementById('scores');
-  div.innerHTML = '';
-
-  if (scores.length === 0) {
-    div.innerHTML = '<p style="opacity:0.5;font-size:13px">No scores yet.</p>';
-    return;
+    // Emoji
+    ctx.font = '32px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(it.emoji, it.x, it.y + 1);
+    ctx.restore();
   }
 
-  scores.forEach((s, i) => {
-    div.innerHTML += `<p>#${i + 1} &nbsp;<b>${s.name}</b> — ${s.score}</p>`;
-  });
-}
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
 
-// Render existing scores on load
-renderScores();
+    setCanvasSize();
 
+    state.time += dt;
+    if (state.running) {
+      const interval = spawnIntervalForLevel(state.level);
+      state.spawnTimer += dt;
+      while (state.spawnTimer >= interval) {
+        state.spawnTimer -= interval;
+        addTrash();
+      }
+    }
 
-// Extra hardcore scaling
-function hardcoreMultiplier(level){
- return 1 + level * 0.1;
-}
+    for (let i = state.items.length - 1; i >= 0; i--) {
+      const it = state.items[i];
+      if (!it.held && state.running) {
+        it.y += it.vy * dt;
+      }
+      if (!it.held && it.y - it.radius > canvas.height + 6) {
+        state.items.splice(i, 1);
+        if (state.running) loseLife('miss');
+      }
+    }
+
+    renderBackground();
+    for (const it of state.items) renderItem(it);
+
+    requestAnimationFrame(frame);
+  }
+
+  updateUI();
+  setCanvasSize();
+
+  canvas.addEventListener('pointermove', onPointerMove, { passive: true });
+  canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointerup', onPointerUp);
+
+  // Prevent scrolling on touch while interacting
+  canvas.style.touchAction = 'none';
+
+  requestAnimationFrame(frame);
+})();
 
