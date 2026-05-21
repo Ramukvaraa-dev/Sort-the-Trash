@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - Trash Lost</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:Arial, Helvetica, sans-serif;
+    }
+
+    body{
+      min-height:100vh;
+      background:linear-gradient(180deg,#18230f,#27391c,#255f38);
+      overflow:hidden;
+      color:white;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      position:relative;
+    }
+
+    .floating-trash{
+      position:absolute;
+      font-size:2rem;
+      opacity:0.15;
+      animation:float linear infinite;
+      user-select:none;
+    }
+
+    @keyframes float{
+      from{
+        transform:translateY(110vh) rotate(0deg);
+      }
+      to{
+        transform:translateY(-120vh) rotate(360deg);
+      }
+    }
+
+    .container{
+      text-align:center;
+      padding:40px;
+      width:90%;
+      max-width:800px;
+      background:rgba(0,0,0,0.35);
+      border:3px solid rgba(255,255,255,0.1);
+      backdrop-filter:blur(10px);
+      border-radius:25px;
+      box-shadow:0 0 40px rgba(0,0,0,0.4);
+      z-index:10;
+    }
+
+    h1{
+      font-size:8rem;
+      color:#9eff7a;
+      text-shadow:0 0 20px #7dff63;
+    }
+
+    h2{
+      font-size:2rem;
+      margin-bottom:20px;
+    }
+
+    p{
+      font-size:1.1rem;
+      color:#d8d8d8;
+      margin-bottom:30px;
+      line-height:1.6;
+    }
+
+    .bins{
+      display:flex;
+      justify-content:center;
+      gap:20px;
+      margin:30px 0;
+      flex-wrap:wrap;
+    }
+
+    .bin{
+      width:140px;
+      height:150px;
+      border-radius:20px 20px 10px 10px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      font-size:1.2rem;
+      font-weight:bold;
+      transition:0.25s;
+      cursor:pointer;
+      border:3px solid rgba(255,255,255,0.15);
+    }
+
+    .bin:hover{
+      transform:translateY(-8px) scale(1.05);
+    }
+
+    .recycle{
+      background:#2f9e44;
+    }
+
+    .organic{
+      background:#8d6e63;
+    }
+
+    .plastic{
+      background:#1971c2;
+    }
+
+    .emoji{
+      font-size:3rem;
+      margin-bottom:10px;
+    }
+
+    .btn{
+      display:inline-block;
+      margin-top:20px;
+      padding:14px 28px;
+      background:#9eff7a;
+      color:#111;
+      text-decoration:none;
+      border-radius:14px;
+      font-weight:bold;
+      transition:0.25s;
+      box-shadow:0 0 20px rgba(158,255,122,0.4);
+    }
+
+    .btn:hover{
+      transform:scale(1.08);
+      background:white;
+    }
+
+    .tip{
+      margin-top:25px;
+      font-size:0.95rem;
+      opacity:0.8;
+    }
+
+    @media(max-width:700px){
+      h1{
+        font-size:5rem;
+      }
+
+      h2{
+        font-size:1.5rem;
+      }
+
+      .bin{
+        width:110px;
+        height:120px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Trash -->
+  <div class="floating-trash" style="left:5%; animation-duration:12s;">🧃</div>
+  <div class="floating-trash" style="left:18%; animation-duration:18s;">🍌</div>
+  <div class="floating-trash" style="left:30%; animation-duration:10s;">📰</div>
+  <div class="floating-trash" style="left:48%; animation-duration:16s;">🥤</div>
+  <div class="floating-trash" style="left:62%; animation-duration:13s;">🍕</div>
+  <div class="floating-trash" style="left:77%; animation-duration:19s;">🛍️</div>
+  <div class="floating-trash" style="left:90%; animation-duration:11s;">🧴</div>
+
+  <div class="container">
+    <h1>404</h1>
+    <h2>Oops. This trash escaped the sorting center.</h2>
+
+    <p>
+      The page you tried to reach got mixed into the wrong bin 💀<br>
+      Maybe recycle your path and try again.
+    </p>
+
+    <div class="bins">
+
+      <div class="bin recycle">
+        <div class="emoji">♻️</div>
+        Recycle
+      </div>
+
+      <div class="bin organic">
+        <div class="emoji">🍂</div>
+        Organic
+      </div>
+
+      <div class="bin plastic">
+        <div class="emoji">🧴</div>
+        Plastic
+      </div>
+
+    </div>
+
+    <a href="/" class="btn">Return Home</a>
+
+    <div class="tip">
+      Pro Tip: Sort your trash. Save the planet 🌍
+    </div>
+  </div>
+
+</body>
+</html>
