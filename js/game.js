@@ -41,6 +41,8 @@
     feedbackTimer: null,
   };
 
+  const MAX_ONSCREEN = 2;
+
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
   function setFeedback(text, color) {
@@ -277,8 +279,8 @@
     if (state.running) {
       const interval = spawnIntervalForLevel(state.level);
       state.spawnTimer += dt;
-      while (state.spawnTimer >= interval) {
-        state.spawnTimer -= interval;
+      if (state.items.length < MAX_ONSCREEN && state.spawnTimer >= interval) {
+        state.spawnTimer = 0;
         addTrash();
       }
     }
@@ -312,4 +314,3 @@
 
   requestAnimationFrame(frame);
 })();
-
