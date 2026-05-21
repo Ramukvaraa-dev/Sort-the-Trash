@@ -7,10 +7,26 @@
    SHARED
 ══════════════════════════════════════════════════════════════════ */
 body {
-  font-family: Arial, sans-serif;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: white;
   overflow: hidden;
   height: 100vh;
+}
+
+/* App root */
+#root {
+  min-height: 100vh;
+}
+
+/* Game layout wrappers (used on /pages/game.html) */
+.game-root {
+  position: relative;
+  min-height: 100vh;
+}
+
+.game-container {
+  position: relative;
+  min-height: 100vh;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -89,7 +105,7 @@ body {
 }
 
 /* Canvas fills the whole viewport */
-canvas {
+.game-canvas {
   display: block;
   position: absolute;
   top: 0; left: 0;
@@ -258,11 +274,10 @@ button{
 button:hover{
  transform:scale(1.05);
 }
-canvas{
+.game-canvas{
  animation:fadeIn .5s ease;
 }
 @keyframes fadeIn{
  from{opacity:0;}
  to{opacity:1;}
 }
-

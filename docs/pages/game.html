@@ -2,44 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>♻️ Eco Garbage Shooter — Play</title>
+  <meta name="description" content="Eco Garbage Shooter — sort falling trash, keep your combo, and save your score locally." />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="Eco Garbage Shooter — Play" />
+  <meta property="og:description" content="Sort falling trash, keep your combo, and save your score locally." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Eco Garbage Shooter — Play" />
+  <meta name="twitter:description" content="Sort falling trash, keep your combo, and save your score locally." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body class="game-body">
 
-  <!-- Score bar -->
-  <div class="topbar">
-    <div>🏆 Score: <span id="score">0</span></div>
-    <div>🔥 Combo: <span id="combo">0</span></div>
-  </div>
+  <div id="root">
+    <div class="game-root">
+      <div class="game-container">
+        <!-- Score bar -->
+        <div class="topbar">
+          <div>🏆 Score: <span id="score">0</span></div>
+          <div>🔥 Combo: <span id="combo">0</span></div>
+        </div>
 
-  <!-- Trash type selector -->
-  <div class="panel">
-    <label class="panel-label">Select Type</label>
-    <button class="type-btn active" id="btn-plastic" onclick="setType('plastic', this)">🧴 Plastic</button>
-    <button class="type-btn"        id="btn-paper"   onclick="setType('paper',   this)">📄 Paper</button>
-    <button class="type-btn"        id="btn-organic" onclick="setType('organic', this)">🍌 Organic</button>
-  </div>
+        <!-- Trash type selector -->
+        <div class="panel">
+          <label class="panel-label">Select Type</label>
+          <button class="type-btn active" id="btn-plastic" onclick="setType('plastic', this)">🧴 Plastic</button>
+          <button class="type-btn"        id="btn-paper"   onclick="setType('paper',   this)">📄 Paper</button>
+          <button class="type-btn"        id="btn-organic" onclick="setType('organic', this)">🍌 Organic</button>
+        </div>
 
-  <!-- Home button -->
-  <a class="home-btn" href="../index.html">🏠 Home</a>
+        <!-- Home button -->
+        <a class="home-btn" href="../index.html">🏠 Home</a>
 
-  <!-- Hit / miss feedback flash -->
-  <div id="feedback"></div>
+        <!-- Hit / miss feedback flash -->
+        <div id="feedback"></div>
 
-  <!-- Canvas -->
-  <canvas id="game"></canvas>
+        <!-- Canvas -->
+        <canvas id="game" class="game-canvas"></canvas>
 
-  <!-- Leaderboard -->
-  <div class="leaderboard">
-    <h2>🏆 Leaderboard</h2>
-    <input id="username" maxlength="12" placeholder="Enter username" />
-    <button class="save-btn" onclick="saveScore()">💾 Save Score</button>
-    <div id="scores"></div>
+        <!-- Leaderboard -->
+        <div class="leaderboard">
+          <h2>🏆 Leaderboard</h2>
+          <input id="username" maxlength="12" placeholder="Enter username" />
+          <button class="save-btn" onclick="saveScore()">💾 Save Score</button>
+          <div id="scores"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="../js/game.js"></script>
 </body>
 </html>
-

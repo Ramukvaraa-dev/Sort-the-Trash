@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Eco Garbage Shooter">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="#020617"/>
+  <path d="M65 26c-10 0-19 5-24 13l11 6c3-5 8-8 13-8 8 0 14 6 14 14h12c0-15-12-25-26-25z" fill="url(#g)"/>
+  <path d="M30 62c0 10 5 19 13 24l6-11c-5-3-8-8-8-13 0-8 6-14 14-14V36c-15 0-25 12-25 26z" fill="url(#g)"/>
+  <path d="M98 66c-3 15-16 25-31 24l0-12c8 0 15-5 17-13l14 1z" fill="url(#g)"/>
+  <path d="M79 40l14 12-18 2 4-14z" fill="#a7f3d0"/>
+  <path d="M40 74l2 18-12-14 10-4z" fill="#a7f3d0"/>
+  <path d="M72 94l-18-2 14-12 4 14z" fill="#a7f3d0"/>
+</svg>
+
