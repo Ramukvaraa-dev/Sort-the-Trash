@@ -12,6 +12,7 @@
   const scoreEl = document.getElementById('score');
   const levelEl = document.getElementById('level');
   const feedbackEl = document.getElementById('feedback');
+  const resetBtn = document.getElementById('reset-btn');
   const lifeEls = [1, 2, 3].map((n) => document.getElementById(`life-${n}`)).filter(Boolean);
 
   const bins = Array.from(document.querySelectorAll('.bin'));
@@ -39,9 +40,19 @@
     heldId: null,
     pointer: { x: 0, y: 0, active: false },
     feedbackTimer: null,
+    slowUntil: 0,
+    doubleUntil: 0,
   };
 
-  const MAX_ONSCREEN = 2;
+  const BASE_MAX_ONSCREEN = 2;
+  const maxOnscreenForLevel = (level) => clamp(BASE_MAX_ONSCREEN + Math.floor((level - 1) / 2), 2, 4);
+
+  const POWERUPS = [
+    { kind: 'slow', emoji: '🧊', label: 'SLOW 5s' },
+    { kind: 'life', emoji: '❤️', label: '+1 LIFE' },
+    { kind: 'double', emoji: '✨', label: '2× 6s' },
+    { kind: 'clear', emoji: '💥', label: 'CLEAR' },
+  ];
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -87,20 +98,23 @@
   }
 
   function levelForScore(score) {
+    if (score >= 120) return 8;
+    if (score >= 90) return 7;
     if (score >= 60) return 6;
-    if (score >= 45) return 5;
-    if (score >= 30) return 4;
-    if (score >= 18) return 3;
-    if (score >= 8) return 2;
+    if (score >= 40) return 5;
+    if (score >= 24) return 4;
+    if (score >= 12) return 3;
+    if (score >= 5) return 2;
     return 1;
   }
 
   function spawnIntervalForLevel(level) {
-    return clamp(1.05 - level * 0.12, 0.35, 1.05);
+    // Harder curve: faster spawns at higher levels, but still capped by onscreen limit.
+    return clamp(1.10 - level * 0.16, 0.30, 1.10);
   }
 
   function speedForLevel(level) {
-    return 55 + level * 22;
+    return 65 + level * 32;
   }
 
   function loseLife(reason) {
@@ -118,13 +132,17 @@
   }
 
   function addTrash() {
-    const t = TRASH[(Math.random() * TRASH.length) | 0];
+    const spawnPower = Math.random() < 0.13; // ~13% powerups
+    const t = spawnPower ? null : TRASH[(Math.random() * TRASH.length) | 0];
+    const p = spawnPower ? POWERUPS[(Math.random() * POWERUPS.length) | 0] : null;
     const margin = 44;
     const radius = 22;
     state.items.push({
       id: crypto?.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
-      type: t.type,
-      emoji: t.emoji,
+      kind: spawnPower ? 'power' : 'trash',
+      type: spawnPower ? 'power' : t.type,
+      power: spawnPower ? p.kind : null,
+      emoji: spawnPower ? p.emoji : t.emoji,
       x: margin + Math.random() * (canvas.width - margin * 2),
       y: -40,
       vy: speedForLevel(state.level) * (0.75 + Math.random() * 0.55),
@@ -162,20 +180,65 @@
     const bin = binByPoint(clientX, clientY);
     const binType = bin?.getAttribute('data-bin') || null;
 
-    if (binType && binType === held.type) {
-      state.score += 1;
+    if (held.kind === 'power') {
+      // Powerups activate on drop (anywhere).
+      activatePowerup(held.power);
+      removeItem(held.id);
+    } else if (binType && binType === held.type) {
+      const mult = nowMs() < state.doubleUntil ? 2 : 1;
+      state.score += 1 * mult;
       state.level = levelForScore(state.score);
       updateUI();
-      setFeedback('✅ Nice!', '#4ade80');
+      setFeedback(mult === 2 ? '✅ Nice! (2×)' : '✅ Nice!', '#4ade80');
       removeItem(held.id);
     } else if (binType) {
       removeItem(held.id);
-      loseLife('wrong');
+      // Tougher at higher levels: wrong bin can cost 2 lives.
+      if (state.level >= 5 && state.lives > 1) {
+        loseLife('wrong');
+        loseLife('wrong');
+      } else {
+        loseLife('wrong');
+      }
     } else {
       // Dropped nowhere: just continue falling
     }
 
     state.heldId = null;
+  }
+
+  function nowMs() {
+    return performance.now();
+  }
+
+  function activatePowerup(kind) {
+    if (!kind) return;
+    if (kind === 'slow') {
+      state.slowUntil = nowMs() + 5000;
+      setFeedback('🧊 Slow time!', '#a7f3d0');
+      return;
+    }
+    if (kind === 'double') {
+      state.doubleUntil = nowMs() + 6000;
+      setFeedback('✨ Double score!', '#c4b5fd');
+      return;
+    }
+    if (kind === 'life') {
+      state.lives = Math.min(3, state.lives + 1);
+      updateUI();
+      setFeedback('❤️ +1 life!', '#fb7185');
+      return;
+    }
+    if (kind === 'clear') {
+      const removed = state.items.filter((it) => it.kind === 'trash').length;
+      state.items = state.items.filter((it) => it.kind !== 'trash');
+      const mult = nowMs() < state.doubleUntil ? 2 : 1;
+      state.score += removed * mult;
+      state.level = levelForScore(state.score);
+      updateUI();
+      setFeedback('💥 Cleared!', '#fbbf24');
+      return;
+    }
   }
 
   function onPointerMove(e) {
@@ -253,7 +316,7 @@
     // Shadow / chip
     ctx.save();
     ctx.shadowBlur = it.held ? 28 : 18;
-    ctx.shadowColor = 'rgba(34,197,94,0.25)';
+    ctx.shadowColor = it.kind === 'power' ? 'rgba(168,85,247,0.25)' : 'rgba(34,197,94,0.25)';
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     drawRoundedRect(it.x - 28, it.y - 28, 56, 56, 16);
     ctx.fill();
@@ -279,7 +342,8 @@
     if (state.running) {
       const interval = spawnIntervalForLevel(state.level);
       state.spawnTimer += dt;
-      if (state.items.length < MAX_ONSCREEN && state.spawnTimer >= interval) {
+      const maxOnscreen = maxOnscreenForLevel(state.level);
+      if (state.items.length < maxOnscreen && state.spawnTimer >= interval) {
         state.spawnTimer = 0;
         addTrash();
       }
@@ -288,7 +352,8 @@
     for (let i = state.items.length - 1; i >= 0; i--) {
       const it = state.items[i];
       if (!it.held && state.running) {
-        it.y += it.vy * dt;
+        const slow = nowMs() < state.slowUntil ? 0.45 : 1;
+        it.y += it.vy * dt * slow;
       }
       if (!it.held && it.y - it.radius > canvas.height + 6) {
         state.items.splice(i, 1);
@@ -304,6 +369,24 @@
 
   updateUI();
   setCanvasSize();
+
+  function resetGame() {
+    state.running = true;
+    state.score = 0;
+    state.level = 1;
+    state.lives = 3;
+    state.spawnTimer = 0;
+    state.items = [];
+    state.heldId = null;
+    state.slowUntil = 0;
+    state.doubleUntil = 0;
+    canvas.style.cursor = 'default';
+    if (feedbackEl) feedbackEl.style.opacity = '0';
+    updateUI();
+    setFeedback('Reset!', '#a7f3d0');
+  }
+
+  resetBtn?.addEventListener('click', resetGame);
 
   canvas.addEventListener('pointermove', onPointerMove, { passive: true });
   canvas.addEventListener('pointerdown', onPointerDown);
