@@ -1,0 +1,267 @@
+/* ── Reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SHARED
+══════════════════════════════════════════════════════════════════ */
+body {
+  font-family: Arial, sans-serif;
+  color: white;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LANDING PAGE  (index.html)
+══════════════════════════════════════════════════════════════════ */
+.landing-body {
+  background: linear-gradient(135deg, #020617, #0f172a, #14532d);
+  overflow-y: auto;
+}
+
+#landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+#landing h1 {
+  font-size: clamp(30px, 6vw, 62px);
+  margin-bottom: 12px;
+  text-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+}
+
+#landing > p {
+  font-size: 18px;
+  opacity: 0.8;
+  margin-bottom: 36px;
+}
+
+.play-btn {
+  display: inline-block;
+  padding: 18px 50px;
+  background: #22c55e;
+  color: white;
+  text-decoration: none;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: bold;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+}
+
+.play-btn:hover  { background: #16a34a; transform: scale(1.05); }
+.play-btn:active { transform: scale(0.97); }
+
+.info-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  max-width: 800px;
+  margin-top: 40px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 22px 28px;
+  border-radius: 18px;
+  max-width: 340px;
+  text-align: left;
+}
+
+.card h2 { font-size: 18px; margin-bottom: 8px; }
+.card p  { font-size: 14px; opacity: 0.75; line-height: 1.65; }
+
+/* ══════════════════════════════════════════════════════════════════
+   GAME PAGE  (game.html)
+══════════════════════════════════════════════════════════════════ */
+.game-body {
+  background: #020617;
+  overflow: hidden;
+}
+
+/* Canvas fills the whole viewport */
+canvas {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ── Top score bar ───────────────────────────────────────────────── */
+.topbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 12px 28px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* ── Type selector panel ─────────────────────────────────────────── */
+.panel {
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 14px 12px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.panel-label {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
+.type-btn {
+  padding: 10px 16px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.type-btn:hover  { background: rgba(255, 255, 255, 0.2); transform: scale(1.04); }
+.type-btn:active { transform: scale(0.97); }
+.type-btn.active { border-color: #22c55e; background: rgba(34, 197, 94, 0.22); }
+
+/* ── Home button ─────────────────────────────────────────────────── */
+.home-btn {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  background: #22c55e;
+  padding: 10px 18px;
+  border-radius: 12px;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  z-index: 10;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.home-btn:hover  { background: #16a34a; transform: scale(1.04); }
+.home-btn:active { transform: scale(0.97); }
+
+/* ── Feedback flash ──────────────────────────────────────────────── */
+#feedback {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+/* ── Leaderboard panel ───────────────────────────────────────────── */
+.leaderboard {
+  position: absolute;
+  right: 15px;
+  bottom: 15px;
+  width: 245px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 16px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.leaderboard h2 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.leaderboard input {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  outline: none;
+}
+
+.leaderboard input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.leaderboard input:focus { background: rgba(255, 255, 255, 0.22); }
+
+.save-btn {
+  width: 100%;
+  padding: 9px;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background 0.2s, transform 0.1s;
+  margin-bottom: 10px;
+}
+
+.save-btn:hover  { background: #16a34a; }
+.save-btn:active { transform: scale(0.97); }
+
+#scores p {
+  font-size: 13px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0.85;
+}
+
+#scores p:last-child { border-bottom: none; }
+
+
+button{
+ transition:all .2s ease;
+ cursor:pointer;
+}
+button:hover{
+ transform:scale(1.05);
+}
+canvas{
+ animation:fadeIn .5s ease;
+}
+@keyframes fadeIn{
+ from{opacity:0;}
+ to{opacity:1;}
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>♻️ Eco Garbage Shooter — Play</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="game-body">
+
+  <!-- Score bar -->
+  <div class="topbar">
+    <div>🏆 Score: <span id="score">0</span></div>
+    <div>🔥 Combo: <span id="combo">0</span></div>
+  </div>
+
+  <!-- Trash type selector -->
+  <div class="panel">
+    <label class="panel-label">Select Type</label>
+    <button class="type-btn active" id="btn-plastic" onclick="setType('plastic', this)">🧴 Plastic</button>
+    <button class="type-btn"        id="btn-paper"   onclick="setType('paper',   this)">📄 Paper</button>
+    <button class="type-btn"        id="btn-organic" onclick="setType('organic', this)">🍌 Organic</button>
+  </div>
+
+  <!-- Home button -->
+  <a class="home-btn" href="index.html">🏠 Home</a>
+
+  <!-- Hit / miss feedback flash -->
+  <div id="feedback"></div>
+
+  <!-- Canvas -->
+  <canvas id="game"></canvas>
+
+  <!-- Leaderboard -->
+  <div class="leaderboard">
+    <h2>🏆 Leaderboard</h2>
+    <input id="username" maxlength="12" placeholder="Enter username" />
+    <button class="save-btn" onclick="saveScore()">💾 Save Score</button>
+    <div id="scores"></div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
