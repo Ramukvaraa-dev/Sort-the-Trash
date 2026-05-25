@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
    TRASH SORT — game.js
-   Interaction: CLICK to pick up · DROP in correct bin
+   Interaction: Drag each item along its curved path into the matching column
    UI: SCORE, LEVEL, ♥♥♥ lives
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -15,44 +15,24 @@
   const resetBtn = document.getElementById('reset-btn');
   const lifeEls = [1, 2, 3].map((n) => document.getElementById(`life-${n}`)).filter(Boolean);
 
-  const bins = Array.from(document.querySelectorAll('.bin'));
-  const binByPoint = (clientX, clientY) => {
-    const el = document.elementFromPoint(clientX, clientY);
-    if (!el) return null;
-    const bin = el.closest?.('.bin');
-    return bin || null;
-  };
-
   const TRASH = [
     { type: 'plastic', emoji: '🧴', color: '#60a5fa' },
     { type: 'paper', emoji: '📄', color: '#fbbf24' },
     { type: 'organic', emoji: '🍌', color: '#4ade80' },
   ];
 
+  const COLUMN_TYPES = ['plastic', 'paper', 'organic'];
+
   const state = {
     running: true,
     score: 0,
     level: 1,
     lives: 3,
-    time: 0,
     spawnTimer: 0,
     items: [],
-    heldId: null,
-    pointer: { x: 0, y: 0, active: false },
     feedbackTimer: null,
-    slowUntil: 0,
-    doubleUntil: 0,
+    drag: null,
   };
-
-  const BASE_MAX_ONSCREEN = 2;
-  const maxOnscreenForLevel = (level) => clamp(BASE_MAX_ONSCREEN + Math.floor((level - 1) / 2), 2, 4);
-
-  const POWERUPS = [
-    { kind: 'slow', emoji: '🧊', label: 'SLOW 5s' },
-    { kind: 'life', emoji: '❤️', label: '+1 LIFE' },
-    { kind: 'double', emoji: '✨', label: '2× 6s' },
-    { kind: 'clear', emoji: '💥', label: 'CLEAR' },
-  ];
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -64,7 +44,7 @@
     clearTimeout(state.feedbackTimer);
     state.feedbackTimer = setTimeout(() => {
       feedbackEl.style.opacity = '0';
-    }, 650);
+    }, 900);
   }
 
   function updateUI() {
@@ -90,13 +70,6 @@
     }
   }
 
-  function getPointerInCanvas(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((clientY - rect.top) / rect.height) * canvas.height;
-    return { x, y };
-  }
-
   function levelForScore(score) {
     if (score >= 120) return 8;
     if (score >= 90) return 7;
@@ -108,56 +81,74 @@
     return 1;
   }
 
+  function maxOnscreenForLevel(level) {
+    return clamp(1 + Math.floor((level - 1) / 3), 1, 3);
+  }
+
   function spawnIntervalForLevel(level) {
-    // Harder curve: faster spawns at higher levels, but still capped by onscreen limit.
-    return clamp(1.10 - level * 0.16, 0.30, 1.10);
+    return clamp(1.25 - level * 0.08, 0.45, 1.25);
   }
 
-  function speedForLevel(level) {
-    return 65 + level * 32;
+  function landingY() {
+    return canvas.height - 72;
   }
 
-  function loseLife(reason) {
+  function columnCenterForType(type) {
+    const idx = COLUMN_TYPES.indexOf(type);
+    return (canvas.width / 3) * (idx + 0.5);
+  }
+
+  function targetForType(type) {
+    return {
+      x: columnCenterForType(type),
+      y: landingY() - 105,
+    };
+  }
+
+  function loseLife() {
     state.lives = Math.max(0, state.lives - 1);
     updateUI();
-    if (reason === 'wrong') setFeedback('❌ Wrong bin!', '#f87171');
-    else if (reason === 'miss') setFeedback('💨 Missed!', '#fbbf24');
-    else setFeedback('⚠️ Oops!', '#fbbf24');
+    setFeedback('💨 Missed!', '#fbbf24');
 
     if (state.lives <= 0) {
       state.running = false;
-      canvas.style.cursor = 'default';
       setFeedback('Game over — refresh to try again', '#f87171');
     }
   }
 
-  function addTrash() {
-    const spawnPower = Math.random() < 0.13; // ~13% powerups
-    const t = spawnPower ? null : TRASH[(Math.random() * TRASH.length) | 0];
-    const p = spawnPower ? POWERUPS[(Math.random() * POWERUPS.length) | 0] : null;
-    const margin = 44;
-    const radius = 22;
-    state.items.push({
-      id: crypto?.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
-      kind: spawnPower ? 'power' : 'trash',
-      type: spawnPower ? 'power' : t.type,
-      power: spawnPower ? p.kind : null,
-      emoji: spawnPower ? p.emoji : t.emoji,
-      x: margin + Math.random() * (canvas.width - margin * 2),
-      y: -40,
-      vy: speedForLevel(state.level) * (0.75 + Math.random() * 0.55),
-      radius,
-      held: false,
-    });
+  function scorePoint() {
+    state.score += 1;
+    state.level = levelForScore(state.score);
+    updateUI();
+    setFeedback('✅ Sorted!', '#4ade80');
   }
 
-  function findItemAt(x, y) {
-    for (let i = state.items.length - 1; i >= 0; i--) {
-      const it = state.items[i];
-      const d = Math.hypot(it.x - x, it.y - y);
-      if (d <= it.radius + 10) return it;
-    }
-    return null;
+  function addTrash() {
+    const type = TRASH[(Math.random() * TRASH.length) | 0];
+    const radius = 34;
+    const target = targetForType(type);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const curve = 0.14 + Math.random() * 0.12;
+    const startX = target.x + side * (canvas.width * 0.26);
+    const startY = -radius - 16;
+
+    state.items.push({
+      id: crypto?.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
+      type: type.type,
+      emoji: type.emoji,
+      color: type.color,
+      radius,
+      pathStartX: startX,
+      pathStartY: startY,
+      pathEndX: target.x,
+      pathEndY: target.y,
+      curve,
+      progress: 0,
+      dragging: false,
+      expiry: performance.now() + 9000,
+      x: startX,
+      y: startY,
+    });
   }
 
   function removeItem(id) {
@@ -165,113 +156,47 @@
     if (idx >= 0) state.items.splice(idx, 1);
   }
 
-  function dropHeld(clientX, clientY) {
-    if (!state.heldId) return;
-    const held = state.items.find((it) => it.id === state.heldId);
-    if (!held) {
-      state.heldId = null;
-      canvas.style.cursor = 'default';
-      return;
-    }
-
-    held.held = false;
-    canvas.style.cursor = 'default';
-
-    const bin = binByPoint(clientX, clientY);
-    const binType = bin?.getAttribute('data-bin') || null;
-
-    if (held.kind === 'power') {
-      // Powerups activate on drop (anywhere).
-      activatePowerup(held.power);
-      removeItem(held.id);
-    } else if (binType && binType === held.type) {
-      const mult = nowMs() < state.doubleUntil ? 2 : 1;
-      state.score += 1 * mult;
-      state.level = levelForScore(state.score);
-      updateUI();
-      setFeedback(mult === 2 ? '✅ Nice! (2×)' : '✅ Nice!', '#4ade80');
-      removeItem(held.id);
-    } else if (binType) {
-      removeItem(held.id);
-      // Tougher at higher levels: wrong bin can cost 2 lives.
-      if (state.level >= 5 && state.lives > 1) {
-        loseLife('wrong');
-        loseLife('wrong');
-      } else {
-        loseLife('wrong');
-      }
-    } else {
-      // Dropped nowhere: just continue falling
-    }
-
-    state.heldId = null;
+  function computePosition(item) {
+    const progress = clamp(item.progress, 0, 1);
+    const curveLift = Math.sin(progress * Math.PI) * (canvas.height * item.curve * 0.32);
+    const laneBias = (item.pathEndX - item.pathStartX) * progress;
+    const verticalBias = (item.pathEndY - item.pathStartY) * progress;
+    return {
+      x: item.pathStartX + laneBias,
+      y: item.pathStartY + verticalBias - curveLift,
+    };
   }
 
-  function nowMs() {
-    return performance.now();
+  function updateItemPosition(item) {
+    const pos = computePosition(item);
+    item.x = pos.x;
+    item.y = pos.y;
   }
 
-  function activatePowerup(kind) {
-    if (!kind) return;
-    if (kind === 'slow') {
-      state.slowUntil = nowMs() + 5000;
-      setFeedback('🧊 Slow time!', '#a7f3d0');
-      return;
-    }
-    if (kind === 'double') {
-      state.doubleUntil = nowMs() + 6000;
-      setFeedback('✨ Double score!', '#c4b5fd');
-      return;
-    }
-    if (kind === 'life') {
-      state.lives = Math.min(3, state.lives + 1);
-      updateUI();
-      setFeedback('❤️ +1 life!', '#fb7185');
-      return;
-    }
-    if (kind === 'clear') {
-      const removed = state.items.filter((it) => it.kind === 'trash').length;
-      state.items = state.items.filter((it) => it.kind !== 'trash');
-      const mult = nowMs() < state.doubleUntil ? 2 : 1;
-      state.score += removed * mult;
-      state.level = levelForScore(state.score);
-      updateUI();
-      setFeedback('💥 Cleared!', '#fbbf24');
-      return;
-    }
+  function getCanvasPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
   }
 
-  function onPointerMove(e) {
-    state.pointer.active = true;
-    const p = getPointerInCanvas(e.clientX, e.clientY);
-    state.pointer.x = p.x;
-    state.pointer.y = p.y;
-
-    if (state.heldId) {
-      const held = state.items.find((it) => it.id === state.heldId);
-      if (held) {
-        held.x = clamp(p.x, held.radius, canvas.width - held.radius);
-        held.y = clamp(p.y, held.radius, canvas.height - held.radius);
+  function itemAtPoint(x, y) {
+    for (let i = state.items.length - 1; i >= 0; i -= 1) {
+      const item = state.items[i];
+      const dx = x - item.x;
+      const dy = y - item.y;
+      if (dx * dx + dy * dy <= item.radius * item.radius) {
+        return item;
       }
     }
+    return null;
   }
 
-  function onPointerDown(e) {
-    if (!state.running) return;
-    const p = getPointerInCanvas(e.clientX, e.clientY);
-    const target = findItemAt(p.x, p.y);
-    if (!target) return;
-    state.heldId = target.id;
-    target.held = true;
-    target.x = p.x;
-    target.y = p.y;
-    canvas.style.cursor = 'grabbing';
-    setFeedback('Picked up!', '#a7f3d0');
-  }
-
-  function onPointerUp(e) {
-    if (!state.running) return;
-    dropHeld(e.clientX, e.clientY);
+  function progressForPointer(item, point) {
+    const span = item.pathEndX - item.pathStartX;
+    if (Math.abs(span) < 0.001) return 0;
+    return clamp((point.x - item.pathStartX) / span, 0, 1);
   }
 
   function drawRoundedRect(x, y, w, h, r) {
@@ -292,43 +217,78 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Subtle grid
     ctx.save();
-    ctx.globalAlpha = 0.06;
-    ctx.strokeStyle = '#94a3b8';
-    const step = 48;
-    for (let x = 0; x <= canvas.width; x += step) {
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+    ctx.lineWidth = 1;
+    const laneWidth = canvas.width / 3;
+    for (let i = 1; i < 3; i++) {
+      const x = laneWidth * i;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
-    for (let y = 0; y <= canvas.height; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
     ctx.restore();
   }
 
-  function renderItem(it) {
-    // Shadow / chip
+  function renderItem(item) {
     ctx.save();
-    ctx.shadowBlur = it.held ? 28 : 18;
-    ctx.shadowColor = it.kind === 'power' ? 'rgba(168,85,247,0.25)' : 'rgba(34,197,94,0.25)';
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    drawRoundedRect(it.x - 28, it.y - 28, 56, 56, 16);
+    ctx.shadowBlur = item.dragging ? 28 : 18;
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.28)';
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    drawRoundedRect(item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2, 20);
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Emoji
-    ctx.font = '32px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+    ctx.font = `${Math.max(32, item.radius * 1.15)}px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.fillText(it.emoji, it.x, it.y + 1);
+    ctx.fillText(item.emoji, item.x, item.y + 1);
     ctx.restore();
+  }
+
+  function pickUpItem(event) {
+    if (!state.running) return;
+    const point = getCanvasPoint(event);
+    const item = itemAtPoint(point.x, point.y);
+    if (!item) return;
+
+    state.drag = { id: item.id, pointerId: event.pointerId };
+    item.dragging = true;
+    item.progress = progressForPointer(item, point);
+    updateItemPosition(item);
+    canvas.style.cursor = 'grabbing';
+    canvas.setPointerCapture?.(event.pointerId);
+    setFeedback('Drag it along the curved path.', '#cbd5e1');
+  }
+
+  function dragItem(event) {
+    if (!state.drag) return;
+    const point = getCanvasPoint(event);
+    const item = state.items.find((entry) => entry.id === state.drag.id);
+    if (!item) return;
+
+    item.progress = progressForPointer(item, point);
+    updateItemPosition(item);
+  }
+
+  function dropItem(event) {
+    if (!state.drag) return;
+    const item = state.items.find((entry) => entry.id === state.drag.id);
+    if (item) {
+      item.dragging = false;
+      if (item.progress >= 0.97) {
+        scorePoint();
+        removeItem(item.id);
+      } else {
+        setFeedback('Keep dragging it toward the matching column.', '#fbbf24');
+      }
+    }
+
+    state.drag = null;
+    canvas.style.cursor = 'grab';
+    canvas.releasePointerCapture?.(event.pointerId);
   }
 
   let last = performance.now();
@@ -338,37 +298,34 @@
 
     setCanvasSize();
 
-    state.time += dt;
     if (state.running) {
       const interval = spawnIntervalForLevel(state.level);
       state.spawnTimer += dt;
-      const maxOnscreen = maxOnscreenForLevel(state.level);
-      if (state.items.length < maxOnscreen && state.spawnTimer >= interval) {
+      const maxItems = maxOnscreenForLevel(state.level);
+      if (state.items.length < maxItems && state.spawnTimer >= interval) {
         state.spawnTimer = 0;
         addTrash();
       }
     }
 
-    for (let i = state.items.length - 1; i >= 0; i--) {
-      const it = state.items[i];
-      if (!it.held && state.running) {
-        const slow = nowMs() < state.slowUntil ? 0.45 : 1;
-        it.y += it.vy * dt * slow;
+    for (let i = state.items.length - 1; i >= 0; i -= 1) {
+      const item = state.items[i];
+      if (!state.running) break;
+
+      if (!item.dragging && performance.now() > item.expiry) {
+        removeItem(item.id);
+        loseLife();
+        continue;
       }
-      if (!it.held && it.y - it.radius > canvas.height + 6) {
-        state.items.splice(i, 1);
-        if (state.running) loseLife('miss');
-      }
+
+      updateItemPosition(item);
     }
 
     renderBackground();
-    for (const it of state.items) renderItem(it);
+    for (const item of state.items) renderItem(item);
 
     requestAnimationFrame(frame);
   }
-
-  updateUI();
-  setCanvasSize();
 
   function resetGame() {
     state.running = true;
@@ -377,23 +334,21 @@
     state.lives = 3;
     state.spawnTimer = 0;
     state.items = [];
-    state.heldId = null;
-    state.slowUntil = 0;
-    state.doubleUntil = 0;
-    canvas.style.cursor = 'default';
+    state.drag = null;
     if (feedbackEl) feedbackEl.style.opacity = '0';
     updateUI();
-    setFeedback('Reset!', '#a7f3d0');
+    setFeedback('Reset! Drag each item along the path.', '#a7f3d0');
   }
 
+  updateUI();
+  setCanvasSize();
   resetBtn?.addEventListener('click', resetGame);
-
-  canvas.addEventListener('pointermove', onPointerMove, { passive: true });
-  canvas.addEventListener('pointerdown', onPointerDown);
-  window.addEventListener('pointerup', onPointerUp);
-
-  // Prevent scrolling on touch while interacting
   canvas.style.touchAction = 'none';
-
+  canvas.style.cursor = 'grab';
+  canvas.addEventListener('pointerdown', pickUpItem);
+  canvas.addEventListener('pointermove', dragItem);
+  canvas.addEventListener('pointerup', dropItem);
+  canvas.addEventListener('pointercancel', dropItem);
+  setFeedback('Drag the trash along its curved route.', '#cbd5e1');
   requestAnimationFrame(frame);
 })();

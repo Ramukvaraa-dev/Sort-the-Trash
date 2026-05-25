@@ -4,18 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>♻️ Sort the Trash — Play</title>
-  <meta name="description" content="Trash Sort — click to pick up and drop trash into the correct bin. Score points, level up, and survive with 3 lives." />
+  <meta name="description" content="Trash Sort — drag each item along its curved path into the matching column." />
   <meta name="robots" content="index, follow" />
   <meta property="og:title" content="Sort the Trash — Play" />
-  <meta property="og:description" content="Click to pick up and drop trash into the correct bin. Score points, level up, and survive with 3 lives." />
+  <meta property="og:description" content="Drag each item along its curved path into the matching column." />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Sort the Trash — Play" />
-  <meta name="twitter:description" content="Click to pick up and drop trash into the correct bin. Score points, level up, and survive with 3 lives." />
+  <meta name="twitter:description" content="Drag each item along its curved path into the matching column." />
   <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body class="game-body">
@@ -42,19 +42,19 @@
             <span class="life-heart life-active" id="life-3">♥</span>
           </div>
           <div class="sub-right">
-            <span class="aim-row">CLICK to pick up · DROP in correct bin</span>
+            <span class="aim-row">Drag each trash piece along its curved route into the matching column. No green line is shown — follow the path yourself.</span>
           </div>
         </div>
 
-        <!-- Home button -->
-        <a class="home-btn" href="../index.html">🏠 Home</a>
-        <button class="reset-btn" id="reset-btn" type="button" title="Reset">↻ Reset</button>
+        <div class="action-row">
+          <a class="home-btn" href="../index.html">🏠 Home</a>
+          <button class="reset-btn" id="reset-btn" type="button" title="Reset">↻ Reset</button>
+        </div>
 
-        <!-- Hit / miss feedback flash -->
-        <div id="feedback"></div>
-
-        <!-- Canvas -->
-        <canvas id="game" width="900" height="530" class="game-canvas"></canvas>
+        <div class="game-stage">
+          <div id="feedback"></div>
+          <canvas id="game" width="900" height="530" class="game-canvas"></canvas>
+        </div>
 
         <div class="bins">
           <div class="bin bin-plastic" data-bin="plastic">
