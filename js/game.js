@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
    TRASH SORT — game.js
-   Interaction: Drag each item along its curved path into the matching column
+   Interaction: Drag falling items into the matching column
    UI: SCORE, LEVEL, ♥♥♥ lives
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -15,11 +15,26 @@
   const resetBtn = document.getElementById('reset-btn');
   const lifeEls = [1, 2, 3].map((n) => document.getElementById(`life-${n}`)).filter(Boolean);
 
-  const TRASH = [
-    { type: 'plastic', emoji: '🧴', color: '#60a5fa' },
-    { type: 'paper', emoji: '📄', color: '#fbbf24' },
-    { type: 'organic', emoji: '🍌', color: '#4ade80' },
-  ];
+  const TRASH_BY_TYPE = {
+    plastic: [
+      { emoji: '🧴', color: '#60a5fa' },
+      { emoji: '🛍️', color: '#60a5fa' },
+      { emoji: '🥤', color: '#60a5fa' },
+      { emoji: '🧃', color: '#60a5fa' },
+    ],
+    paper: [
+      { emoji: '📄', color: '#fbbf24' },
+      { emoji: '📰', color: '#fbbf24' },
+      { emoji: '📦', color: '#fbbf24' },
+      { emoji: '📃', color: '#fbbf24' },
+    ],
+    organic: [
+      { emoji: '🍌', color: '#4ade80' },
+      { emoji: '🍎', color: '#4ade80' },
+      { emoji: '🥬', color: '#4ade80' },
+      { emoji: '🐟', color: '#4ade80' },
+    ],
+  };
 
   const COLUMN_TYPES = ['plastic', 'paper', 'organic'];
 
@@ -89,6 +104,10 @@
     return clamp(1.25 - level * 0.08, 0.45, 1.25);
   }
 
+  function fallDurationForLevel(level) {
+    return clamp(7.2 - level * 0.55, 3.6, 7.2);
+  }
+
   function landingY() {
     return canvas.height - 72;
   }
@@ -124,28 +143,26 @@
   }
 
   function addTrash() {
-    const type = TRASH[(Math.random() * TRASH.length) | 0];
+    const type = COLUMN_TYPES[(Math.random() * COLUMN_TYPES.length) | 0];
+    const variants = TRASH_BY_TYPE[type] || [{ emoji: '🗑️', color: '#93c5fd' }];
+    const variant = variants[(Math.random() * variants.length) | 0];
     const radius = 34;
-    const target = targetForType(type);
-    const side = Math.random() < 0.5 ? -1 : 1;
-    const curve = 0.14 + Math.random() * 0.12;
-    const startX = target.x + side * (canvas.width * 0.26);
+    const startX = clamp(radius + 10 + Math.random() * (canvas.width - (radius + 10) * 2), radius + 10, canvas.width - radius - 10);
     const startY = -radius - 16;
+    const duration = fallDurationForLevel(state.level);
+    const travel = canvas.height + radius * 2 + 140;
+    const vy = Math.max(55, travel / Math.max(0.1, duration));
 
     state.items.push({
       id: crypto?.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
-      type: type.type,
-      emoji: type.emoji,
-      color: type.color,
+      type,
+      emoji: variant.emoji,
+      color: variant.color,
       radius,
-      pathStartX: startX,
-      pathStartY: startY,
-      pathEndX: target.x,
-      pathEndY: target.y,
-      curve,
-      progress: 0,
       dragging: false,
-      expiry: performance.now() + 9000,
+      vx: (Math.random() - 0.5) * 26,
+      vy,
+      expiry: performance.now() + 12000,
       x: startX,
       y: startY,
     });
@@ -156,28 +173,19 @@
     if (idx >= 0) state.items.splice(idx, 1);
   }
 
-  function computePosition(item) {
-    const progress = clamp(item.progress, 0, 1);
-    const curveLift = Math.sin(progress * Math.PI) * (canvas.height * item.curve * 0.32);
-    const laneBias = (item.pathEndX - item.pathStartX) * progress;
-    const verticalBias = (item.pathEndY - item.pathStartY) * progress;
-    return {
-      x: item.pathStartX + laneBias,
-      y: item.pathStartY + verticalBias - curveLift,
-    };
-  }
-
-  function updateItemPosition(item) {
-    const pos = computePosition(item);
-    item.x = pos.x;
-    item.y = pos.y;
+  function columnTypeAtX(x) {
+    const laneWidth = canvas.width / 3;
+    const idx = clamp(Math.floor(x / laneWidth), 0, 2);
+    return COLUMN_TYPES[idx];
   }
 
   function getCanvasPoint(event) {
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / Math.max(1, rect.width);
+    const scaleY = canvas.height / Math.max(1, rect.height);
     return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
     };
   }
 
@@ -191,12 +199,6 @@
       }
     }
     return null;
-  }
-
-  function progressForPointer(item, point) {
-    const span = item.pathEndX - item.pathStartX;
-    if (Math.abs(span) < 0.001) return 0;
-    return clamp((point.x - item.pathStartX) / span, 0, 1);
   }
 
   function drawRoundedRect(x, y, w, h, r) {
@@ -254,13 +256,23 @@
     const item = itemAtPoint(point.x, point.y);
     if (!item) return;
 
-    state.drag = { id: item.id, pointerId: event.pointerId };
+    state.drag = {
+      id: item.id,
+      pointerId: event.pointerId,
+      dx: point.x - item.x,
+      dy: point.y - item.y,
+      lastX: point.x,
+      lastY: point.y,
+      lastT: performance.now(),
+      vx: 0,
+      vy: 0,
+    };
     item.dragging = true;
-    item.progress = progressForPointer(item, point);
-    updateItemPosition(item);
+    item.vx = 0;
+    item.vy = 0;
     canvas.style.cursor = 'grabbing';
     canvas.setPointerCapture?.(event.pointerId);
-    setFeedback('Drag it along the curved path.', '#cbd5e1');
+    setFeedback('Drag it into the matching column.', '#cbd5e1');
   }
 
   function dragItem(event) {
@@ -269,8 +281,16 @@
     const item = state.items.find((entry) => entry.id === state.drag.id);
     if (!item) return;
 
-    item.progress = progressForPointer(item, point);
-    updateItemPosition(item);
+    const now = performance.now();
+    const dt = Math.max(0.001, (now - state.drag.lastT) / 1000);
+    state.drag.vx = (point.x - state.drag.lastX) / dt;
+    state.drag.vy = (point.y - state.drag.lastY) / dt;
+    state.drag.lastX = point.x;
+    state.drag.lastY = point.y;
+    state.drag.lastT = now;
+
+    item.x = clamp(point.x - state.drag.dx, item.radius, canvas.width - item.radius);
+    item.y = clamp(point.y - state.drag.dy, item.radius, canvas.height - item.radius);
   }
 
   function dropItem(event) {
@@ -278,12 +298,10 @@
     const item = state.items.find((entry) => entry.id === state.drag.id);
     if (item) {
       item.dragging = false;
-      if (item.progress >= 0.97) {
-        scorePoint();
-        removeItem(item.id);
-      } else {
-        setFeedback('Keep dragging it toward the matching column.', '#fbbf24');
-      }
+      const maxThrow = 900;
+      item.vx = clamp(state.drag.vx, -maxThrow, maxThrow);
+      item.vy = clamp(state.drag.vy, -maxThrow, maxThrow);
+      setFeedback('Nice — keep sorting!', '#a7f3d0');
     }
 
     state.drag = null;
@@ -312,13 +330,41 @@
       const item = state.items[i];
       if (!state.running) break;
 
+      if (!item.dragging) {
+        const g = 120;
+        const drag = 0.985;
+        item.vy += g * dt;
+        item.vx *= Math.pow(drag, dt * 60);
+        item.vy *= Math.pow(0.992, dt * 60);
+
+        let nextX = item.x + item.vx * dt;
+        if (nextX < item.radius) {
+          nextX = item.radius;
+          item.vx *= -0.35;
+        } else if (nextX > canvas.width - item.radius) {
+          nextX = canvas.width - item.radius;
+          item.vx *= -0.35;
+        }
+        item.x = nextX;
+        item.y = item.y + item.vy * dt;
+      }
+
       if (!item.dragging && performance.now() > item.expiry) {
         removeItem(item.id);
         loseLife();
         continue;
       }
 
-      updateItemPosition(item);
+      if (!item.dragging && item.y >= landingY()) {
+        const landedType = columnTypeAtX(item.x);
+        if (landedType === item.type) {
+          scorePoint();
+        } else {
+          loseLife();
+        }
+        removeItem(item.id);
+        continue;
+      }
     }
 
     renderBackground();
@@ -337,7 +383,8 @@
     state.drag = null;
     if (feedbackEl) feedbackEl.style.opacity = '0';
     updateUI();
-    setFeedback('Reset! Drag each item along the path.', '#a7f3d0');
+    addTrash();
+    setFeedback('Reset! Drag each item into the correct column.', '#a7f3d0');
   }
 
   updateUI();
@@ -349,6 +396,6 @@
   canvas.addEventListener('pointermove', dragItem);
   canvas.addEventListener('pointerup', dropItem);
   canvas.addEventListener('pointercancel', dropItem);
-  setFeedback('Drag the trash along its curved route.', '#cbd5e1');
+  setFeedback('Drag each item into the matching column.', '#cbd5e1');
   requestAnimationFrame(frame);
 })();
