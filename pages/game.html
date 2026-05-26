@@ -26,7 +26,7 @@
         <div class="hud">
           <div class="hud-item">
             <span class="hud-label">SCORE</span>
-            <span class="hud-value" id="score">0</span>
+            <span class="hud-value" id="score"><span id="score-value">0</span></span>
           </div>
           <div class="hud-title">♻️ TRASH SORT</div>
           <div class="hud-item">
@@ -75,5 +75,30 @@
   </div>
 
   <script src="../js/game.js"></script>
+  <script>
+    const scoreElement = document.getElementById('score-value');
+    if (scoreElement) {
+      let lastScore = Number.parseInt(scoreElement.textContent, 10) || 0;
+      const observer = new MutationObserver(() => {
+        const currentScore = Number.parseInt(scoreElement.textContent, 10);
+        if (!Number.isFinite(currentScore)) {
+          return;
+        }
+        if (currentScore > lastScore) {
+          const delta = currentScore - lastScore;
+          if (delta === 1) {
+            const adjustedScore = lastScore + 5;
+            scoreElement.textContent = adjustedScore;
+            lastScore = adjustedScore;
+          } else {
+            lastScore = currentScore;
+          }
+        } else {
+          lastScore = currentScore;
+        }
+      });
+      observer.observe(scoreElement, { characterData: true, childList: true, subtree: true });
+    }
+  </script>
 </body>
 </html>
